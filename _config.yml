@@ -7,7 +7,7 @@ description: "只争朝夕，不负韶华"
 keyword: ""
 url: "https://yhx9527.github.io"              # your host, for absolute URL
 baseurl: ""         # for example, '/blog' if your blog hosted on 'host/blog'
-
+comments: true
 
 
 # SNS settings
@@ -47,7 +47,7 @@ kramdown:
 
 
 # Disqus settings
-disqus_username: Jhon Handsome
+disqus_username: https-yhx9527-github-io
 # Duoshuo settings
 #  duoshuo_username: huxblog
 # Share component is depend on Comment so we can NOT use share only.
