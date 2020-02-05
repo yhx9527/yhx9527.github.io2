@@ -1,0 +1,257 @@
+I"�T<h1 id="无缝轮播的两种思路">无缝轮播的两种思路</h1>
+
+<p><strong>先展示一下效果</strong></p>
+
+<p><img src="img/in-post/Kapture 2020-02-05 at 15.26.34.gif" alt="Kapture 2020-02-05 at 15.26.34" /></p>
+
+<h3 id="思路一调整节点的摆放顺序">思路一：调整节点的摆放顺序</h3>
+
+<p>整体思路就是每次轮播一次就把第一个节点塞到最后一位，并无动画地将整体向前移动一位，可以通过下图理解一下</p>
+
+<p><img src="img/in-post/Kapture 2020-02-05 at 15.25.56.gif" alt="Kapture 2020-02-05 at 15.25.56" /></p>
+
+<h4 id="下面来说具体实现细节">下面来说具体实现细节</h4>
+
+<p><strong>html结构</strong></p>
+
+<ul>
+  <li>首先是html结构,容器container元素需要限制为一个轮播元素的宽度</li>
+  <li>轮播元素我们使用li元素表示，需要去掉其默认样式，并设置为行内块级元素，让它们在一行哪进行摆放</li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> &lt;div class="container"&gt;
+   &lt;ul&gt;
+     &lt;li style="background: red"&gt;1
+     &lt;li style="background: green"&gt;2
+     &lt;li style="background: blue"&gt;3
+     &lt;li style="background: yellow"&gt;4
+   &lt;/ul&gt;
+ &lt;/div&gt;
+ &lt;style&gt;
+        .container {
+            overflow: hidden;
+            width: 300px;
+            white-space: nowrap;
+        }
+        ul {
+            padding: 0;
+        }
+        ul li {
+            display: inline-block;
+            width: 300px;
+            height: 100px;
+            line-height: 100px;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            list-style-type: none;
+        }
+    &lt;/style&gt;
+</code></pre></div></div>
+
+<p><strong>js部分</strong></p>
+
+<ul>
+  <li>轮播移动效果，我们使用transform来移动ul元素，使用transition来实现过渡效果</li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>uldom.style.transition = 'transform 1s'            
+uldom.style.transform = `translateX(-${300}px)`
+</code></pre></div></div>
+
+<ul>
+  <li>设置一个与过渡效果时长相同的定时器用于在移动结束之后，将第一个元素调整到末尾，并且去掉过渡效果，将ul元素还原到初始位置.</li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>setTimeout(()=&gt;{                             
+  uldom.appendChild(li)                                
+  uldom.style.transition=''                    
+  uldom.style.transform = `translateX(-${0}px)`         
+},  timer) 
+</code></pre></div></div>
+
+<ul>
+  <li>循环轮播，我们使用setTimeout来模拟setInterval。因为setInterval存在跳过间隔以及连续执行的缺点，不能做到真正的间隔执行</li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>function interval(fn,delay){
+  let timer;
+  timer = setTimeout(function test(){
+    fn.call(null);
+    timer=setTimeout(test, delay)
+  }, delay)
+  return timer;
+}
+</code></pre></div></div>
+
+<p><strong>轮播过程如下图所示</strong></p>
+
+<p><img src="img/in-post/Kapture 2020-02-05 at 15.25.56.gif" alt="Kapture 2020-02-05 at 15.25.56" /></p>
+
+<h4 id="完整实现">完整实现</h4>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+    <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"utf-8"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;title&gt;</span>Page Title<span class="nt">&lt;/title&gt;</span>
+    <span class="nt">&lt;style&gt;</span>
+        <span class="nc">.container</span> <span class="p">{</span>
+            <span class="nl">overflow</span><span class="p">:</span> <span class="nb">hidden</span><span class="p">;</span>
+            <span class="nl">width</span><span class="p">:</span> <span class="m">300px</span><span class="p">;</span>
+            <span class="nl">white-space</span><span class="p">:</span> <span class="nb">nowrap</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nt">ul</span> <span class="p">{</span>
+            <span class="nl">padding</span><span class="p">:</span> <span class="m">0</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nt">ul</span> <span class="nt">li</span> <span class="p">{</span>
+            <span class="nl">display</span><span class="p">:</span> <span class="n">inline-block</span><span class="p">;</span>
+            <span class="nl">width</span><span class="p">:</span> <span class="m">300px</span><span class="p">;</span>
+            <span class="nl">height</span><span class="p">:</span> <span class="m">100px</span><span class="p">;</span>
+            <span class="nl">line-height</span><span class="p">:</span> <span class="m">100px</span><span class="p">;</span>
+            <span class="nl">text-align</span><span class="p">:</span> <span class="nb">center</span><span class="p">;</span>
+            <span class="nl">margin</span><span class="p">:</span> <span class="m">0</span><span class="p">;</span>
+            <span class="nl">padding</span><span class="p">:</span> <span class="m">0</span><span class="p">;</span>
+            <span class="nl">list-style-type</span><span class="p">:</span> <span class="nb">none</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="nt">&lt;/style&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"container"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;ul&gt;</span>
+            <span class="nt">&lt;li</span> <span class="na">style=</span><span class="s">"background: red"</span><span class="nt">&gt;</span>1
+            <span class="nt">&lt;li</span> <span class="na">style=</span><span class="s">"background: green"</span><span class="nt">&gt;</span>2
+            <span class="nt">&lt;li</span> <span class="na">style=</span><span class="s">"background: blue"</span><span class="nt">&gt;</span>3
+            <span class="nt">&lt;li</span> <span class="na">style=</span><span class="s">"background: yellow"</span><span class="nt">&gt;</span>4
+        <span class="nt">&lt;/ul&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+    <span class="nt">&lt;script&gt;</span>
+        <span class="kd">const</span> <span class="nx">uldom</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">querySelector</span><span class="p">(</span><span class="dl">'</span><span class="s1">ul</span><span class="dl">'</span><span class="p">)</span>        
+        <span class="kd">const</span> <span class="nx">lidoms</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">querySelectorAll</span><span class="p">(</span><span class="dl">'</span><span class="s1">li</span><span class="dl">'</span><span class="p">)</span>
+        <span class="kd">const</span> <span class="nx">duration</span> <span class="o">=</span> <span class="mi">3000</span><span class="p">;</span>
+        <span class="kd">const</span> <span class="nx">timer</span><span class="o">=</span><span class="mi">1000</span><span class="p">;</span>        
+        <span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transition</span> <span class="o">=</span> <span class="s2">`transform </span><span class="p">${</span><span class="nx">timer</span><span class="o">/</span><span class="mi">1000</span><span class="p">}</span><span class="s2">s`</span>        
+        <span class="kd">let</span> <span class="nx">time</span> <span class="o">=</span> <span class="nx">interval</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>                     
+        	<span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transition</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">transform 1s</span><span class="dl">'</span>            
+        	<span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transform</span> <span class="o">=</span> <span class="s2">`translateX(-</span><span class="p">${</span><span class="mi">300</span><span class="p">}</span><span class="s2">px)`</span>            
+        	<span class="kd">const</span> <span class="nx">li</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">querySelector</span><span class="p">(</span><span class="dl">'</span><span class="s1">li</span><span class="dl">'</span><span class="p">)</span>              
+        	<span class="nx">setTimeout</span><span class="p">(()</span><span class="o">=&gt;</span><span class="p">{</span>                             
+        		<span class="nx">uldom</span><span class="p">.</span><span class="nx">appendChild</span><span class="p">(</span><span class="nx">li</span><span class="p">)</span>                                
+        		<span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transition</span><span class="o">=</span><span class="dl">''</span>                    
+                <span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transform</span> <span class="o">=</span> <span class="s2">`translateX(-</span><span class="p">${</span><span class="mi">0</span><span class="p">}</span><span class="s2">px)`</span>         
+        		<span class="p">},</span>  <span class="nx">timer</span><span class="p">)</span>                
+        <span class="p">},</span> <span class="nx">duration</span><span class="p">)</span>
+        <span class="kd">function</span> <span class="nx">interval</span><span class="p">(</span><span class="nx">fn</span><span class="p">,</span><span class="nx">delay</span><span class="p">){</span>
+            <span class="kd">let</span> <span class="nx">timer</span><span class="p">;</span>
+            <span class="nx">timer</span> <span class="o">=</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="kd">function</span> <span class="nx">test</span><span class="p">(){</span>
+                <span class="nx">fn</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="kc">null</span><span class="p">);</span>
+                <span class="nx">timer</span><span class="o">=</span><span class="nx">setTimeout</span><span class="p">(</span><span class="nx">test</span><span class="p">,</span> <span class="nx">delay</span><span class="p">)</span>
+            <span class="p">},</span> <span class="nx">delay</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nx">timer</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="nt">&lt;/script&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+
+<h4 id="思路二在轮播元素末尾新增第一个元素通过整体移动障眼法实现轮播">思路二：在轮播元素末尾新增第一个元素，通过整体移动，障眼法实现轮播</h4>
+
+<p>这个思路就是在最后位置额外再添加第一个节点，然后不断轮播，当轮播到最后一个节点(第一个节点)时，在下一个节点前先无动画地切回到第一个，之后继续轮播，可以通过下图理解一下</p>
+
+<p><img src="img/in-post/Kapture 2020-02-05 at 15.26.18.gif" alt="Kapture 2020-02-05 at 15.26.18" /></p>
+
+<h4 id="html结构同样">html结构同样</h4>
+
+<h4 id="js部分">js部分</h4>
+
+<p>轮播移动效果，还是使用transform来移动ul元素，使用transition来实现过渡效果。</p>
+
+<p><strong>不同之处</strong>在于思路一是移动一下又移动回去；这里的思路是陆续移动，直到移动到最后一个，当最后一个要继续再移动时需要先一下子回到起点，再接着移动。可参考上图进行理解</p>
+
+<p>我们要记录移动几个(i)了,当最后一个要移动时i1等于0，此时回到了原点的位置，此时还是红色方块1，因为该方块已经呆了3秒，该移动到下一个了，所以我们需要接着出发下次的移动，也就是 setTimeout(temp)这个的意思</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> let i1 = i%len
+ if(i1===0) {
+   uldom.style.transition = ''
+   setTimeout(temp)
+ }
+ else {
+ 	 uldom.style.transition = `transform ${duration/1000}s`
+ }
+ uldom.style.transform = `translateX(-${i1*300}px)`
+i++;
+</code></pre></div></div>
+
+<h4 id="完整代码">完整代码</h4>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+    <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"utf-8"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;title&gt;</span>Page Title<span class="nt">&lt;/title&gt;</span>
+    <span class="nt">&lt;style&gt;</span>
+        <span class="nc">.container</span> <span class="p">{</span>
+            <span class="nl">overflow</span><span class="p">:</span> <span class="nb">hidden</span><span class="p">;</span>
+            <span class="nl">width</span><span class="p">:</span> <span class="m">300px</span><span class="p">;</span>
+            <span class="nl">white-space</span><span class="p">:</span> <span class="nb">nowrap</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nt">ul</span> <span class="p">{</span>
+            <span class="nl">padding</span><span class="p">:</span> <span class="m">0</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nt">ul</span> <span class="nt">li</span> <span class="p">{</span>
+            <span class="nl">display</span><span class="p">:</span> <span class="n">inline-block</span><span class="p">;</span>
+            <span class="nl">width</span><span class="p">:</span> <span class="m">300px</span><span class="p">;</span>
+            <span class="nl">height</span><span class="p">:</span> <span class="m">100px</span><span class="p">;</span>
+            <span class="nl">line-height</span><span class="p">:</span> <span class="m">100px</span><span class="p">;</span>
+            <span class="nl">text-align</span><span class="p">:</span> <span class="nb">center</span><span class="p">;</span>
+            <span class="nl">margin</span><span class="p">:</span> <span class="m">0</span><span class="p">;</span>
+            <span class="nl">padding</span><span class="p">:</span> <span class="m">0</span><span class="p">;</span>
+            <span class="nl">list-style-type</span><span class="p">:</span> <span class="nb">none</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="nt">&lt;/style&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"container"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;ul&gt;</span>
+            <span class="nt">&lt;li</span> <span class="na">style=</span><span class="s">"background: red"</span><span class="nt">&gt;</span>1
+            <span class="nt">&lt;li</span> <span class="na">style=</span><span class="s">"background: green"</span><span class="nt">&gt;</span>2
+            <span class="nt">&lt;li</span> <span class="na">style=</span><span class="s">"background: blue"</span><span class="nt">&gt;</span>3
+            <span class="nt">&lt;li</span> <span class="na">style=</span><span class="s">"background: yellow"</span><span class="nt">&gt;</span>4
+        <span class="nt">&lt;/ul&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+    <span class="nt">&lt;script&gt;</span>
+        <span class="kd">const</span> <span class="nx">uldom</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">querySelector</span><span class="p">(</span><span class="dl">'</span><span class="s1">ul</span><span class="dl">'</span><span class="p">)</span>
+        <span class="kd">const</span> <span class="nx">li</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">querySelector</span><span class="p">(</span><span class="dl">'</span><span class="s1">li</span><span class="dl">'</span><span class="p">).</span><span class="nx">cloneNode</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+        <span class="nx">uldom</span><span class="p">.</span><span class="nx">appendChild</span><span class="p">(</span><span class="nx">li</span><span class="p">)</span>
+        <span class="kd">const</span> <span class="nx">delay</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="nx">duration</span><span class="o">=</span><span class="mi">1000</span><span class="p">;</span> 
+        <span class="kd">const</span> <span class="nx">lidoms</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">querySelectorAll</span><span class="p">(</span><span class="dl">'</span><span class="s1">li</span><span class="dl">'</span><span class="p">)</span>
+        <span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transition</span> <span class="o">=</span> <span class="s2">`transform </span><span class="p">${</span><span class="nx">duration</span><span class="o">/</span><span class="mi">1000</span><span class="p">}</span><span class="s2">s`</span>
+        <span class="kd">let</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">len</span><span class="o">=</span><span class="nx">lidoms</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span>
+
+        <span class="kd">let</span> <span class="nx">time</span> <span class="o">=</span> <span class="nx">interval</span><span class="p">(</span><span class="kd">function</span> <span class="nx">temp</span><span class="p">(){</span>
+            <span class="kd">let</span> <span class="nx">i1</span> <span class="o">=</span> <span class="nx">i</span><span class="o">%</span><span class="nx">len</span>
+            <span class="k">if</span><span class="p">(</span><span class="nx">i1</span><span class="o">===</span><span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transition</span> <span class="o">=</span> <span class="dl">''</span>
+                <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">temp</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="k">else</span> <span class="p">{</span>
+                <span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transition</span> <span class="o">=</span> <span class="s2">`transform </span><span class="p">${</span><span class="nx">duration</span><span class="o">/</span><span class="mi">1000</span><span class="p">}</span><span class="s2">s`</span>
+            <span class="p">}</span>
+            <span class="nx">uldom</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">transform</span> <span class="o">=</span> <span class="s2">`translateX(-</span><span class="p">${</span><span class="nx">i1</span><span class="o">*</span><span class="mi">300</span><span class="p">}</span><span class="s2">px)`</span>
+
+            <span class="nx">i</span><span class="o">++</span><span class="p">;</span>
+        <span class="p">},</span> <span class="nx">delay</span><span class="p">)</span>
+        <span class="kd">function</span> <span class="nx">interval</span><span class="p">(</span><span class="nx">fn</span><span class="p">,</span><span class="nx">delay</span><span class="p">){</span>
+            <span class="kd">let</span> <span class="nx">timer</span><span class="p">;</span>
+            <span class="nx">timer</span> <span class="o">=</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="kd">function</span> <span class="nx">test</span><span class="p">(){</span>
+                <span class="nx">fn</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="kc">null</span><span class="p">);</span>
+                <span class="nx">timer</span><span class="o">=</span><span class="nx">setTimeout</span><span class="p">(</span><span class="nx">test</span><span class="p">,</span> <span class="nx">delay</span><span class="p">)</span>
+            <span class="p">},</span> <span class="nx">delay</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nx">timer</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="nt">&lt;/script&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+
+:ET
