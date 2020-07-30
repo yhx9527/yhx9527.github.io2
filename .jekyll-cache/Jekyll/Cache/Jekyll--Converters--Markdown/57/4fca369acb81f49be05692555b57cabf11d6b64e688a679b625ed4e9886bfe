@@ -1,0 +1,264 @@
+I"�*<h1 id="immer-源码浅谈">immer 源码浅谈</h1>
+
+<p>immer是一个用于以不可变(immutable)的形式修改对象的轻量库，它可以让我们从令人纠结的对象引用或者繁琐的Object.assign，对象解构等浅拷贝方式中解放出来，同时还可以让我们轻轻松松就可以进行深拷贝。</p>
+
+<p>例如我们想要拷贝一份内容，并修改某个属性，可能有以下姿势</p>
+
+<ul>
+  <li>姿势1
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>const a = { id: 1, name: 'jack'};
+const b = a;
+b.name = 'kant';
+console.log(a.name); //kant
+console.log(b.name); //kant
+</code></pre></div>    </div>
+    <p>这种方法同时也修改的原对象，显然是不行的，不知不觉给自己挖了坑</p>
+  </li>
+  <li>姿势2
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>const a = { id: 1, name: 'jack'};
+const b = Object.assign({}, a, {name: 'kant'});
+</code></pre></div>    </div>
+  </li>
+  <li>姿势3
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>const a = { id: 1, name: 'jack'};
+const b = {...a, name: 'kant'}
+</code></pre></div>    </div>
+    <p>以上两种姿势对于浅层的覆盖还算方便，如果层级高了，变化多了，那可就麻烦了</p>
+  </li>
+</ul>
+
+<p>这个时候看看用immer可以如何实现</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import produce from 'immer';
+const a = { id: 1, name: 'jack'};
+const b = produce(a, function(draft) {
+	draft.name = 'kant'
+})
+console.log(a.name) //jack
+console.log(b.name) //kant
+</code></pre></div></div>
+
+<p>immer提供了draft参数让我们可以像操作原对象一样更改数据，同时原对象并不会产生变化，produce返回修改后的对象</p>
+
+<p>produce的另一种使用姿势如下, 生成一个工厂函数，用于做公共属性变更等等就很方便</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import produce from 'immer';
+const a = { id: 1, name: 'jack' };
+const c = { id: 1, name: 'petty' };
+const producer = produce(function (draft) {
+    draft.name = 'kant';
+})
+const b = producer(a);
+console.log(a.name) //jack
+console.log(b.name) //kant
+
+const d = producer(c);
+console.log(c.name) //petty
+console.log(d.name) //kant
+</code></pre></div></div>
+
+<p>immer的基本使用就先这样，现在让我们进入正题，我们以immer作者介绍immer的博客中的一张配图入手浅谈一下immer的源码实现</p>
+
+<p><strong>以下分析基于immer v1.0.0的源码</strong></p>
+
+<p><img src="/img/in-post/immer1.png" alt="1*bZ2J4iIpsm2lMG4ZoXcj3A" /></p>
+
+<p>图中绿树表示原始的对象，蓝色边框表示包了层代理。一开始的时候，当producer启动时，首先创建一个数据结构，并对其进行代理操作,将这个对象以draft参数传给回调函数供操作。之后只要访问到的是对象都会同样的创建这个数据结构（详见get）</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>// 代理对象的数据结构
+{
+  modified: false, //是否有修改，在set的时候设置true
+  finalized: false, //是否完成冻结，在producer执行完成时，遍历整个对象时进行依次冻结
+  parent, //父节点
+  base,  //原始对象
+  copy: undefined, //原始对象的拷贝，在上面进行操作
+  proxies: {}  //记录代理的对象
+}
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>// 代理的handler
+const objectTraps = {
+    get,
+    has(target, prop) {
+        return prop in source(target)
+    },
+    ownKeys(target) {
+        return Reflect.ownKeys(source(target))
+    },
+    set,
+    deleteProperty,
+    getOwnPropertyDescriptor,
+    defineProperty,
+    setPrototypeOf() {
+        throw new Error("Don't even try this...")
+    }
+}
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>// 创建代理对象
+function createProxy(parentState, base) {
+    const state = createState(parentState, base)
+    const proxy = Array.isArray(base)
+        ? Proxy.revocable([state], arrayTraps)
+        : Proxy.revocable(state, objectTraps)
+    proxies.push(proxy)
+    return proxy.proxy
+}
+export function produceProxy(baseState, producer) {
+    ...
+        const rootClone = createProxy(undefined, baseState)
+        // execute the thunk
+        verifyReturnValue(producer.call(rootClone, rootClone))
+		...
+}
+export function verifyReturnValue(value) {
+    // values either than undefined will trigger warning;
+    if (value !== undefined)
+        console.warn(
+            `Immer callback expects no return value. However ${typeof value} was returned`
+        )
+}
+</code></pre></div></div>
+
+<p>当我们对draft进行属性读写时，会触发拦截函数</p>
+
+<p><img src="/img/in-post/immer2.png" alt="1*Lyw8BfTTS3AbdLEDtvJvnA" /></p>
+
+<ul>
+  <li>get<br />
+每当读一个属性时，会将引用类型从base中取出通过createProxy转成代理对象，并将其记录到proxies中，在第一次set的时候一起assign给copy，之后访问到引用类型属性都会转成代理对象赋给copy
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>function get(state, prop) {
+  if (prop === PROXY_STATE) return state
+  if (state.modified) {
+      const value = state.copy[prop]
+      if (value === state.base[prop] &amp;&amp; isProxyable(value))
+          // only create proxy if it is not yet a proxy, and not a new object
+          // (new objects don't need proxying, they will be processed in finalize anyway)
+          return (state.copy[prop] = createProxy(state, value))
+      return value
+  } else {
+      if (has(state.proxies, prop)) return state.proxies[prop]
+      const value = state.base[prop]
+      if (!isProxy(value) &amp;&amp; isProxyable(value))
+          return (state.proxies[prop] = createProxy(state, value))
+      return value
+  }
+}
+export function isProxyable(value) {
+  if (!value) return false
+  if (typeof value !== "object") return false
+  if (Array.isArray(value)) return true
+  const proto = Object.getPrototypeOf(value)
+  return proto === null || proto === Object.prototype
+}
+</code></pre></div>    </div>
+  </li>
+  <li>set<br />
+set第一次操作时将会把base和该对象下的proxies浅拷贝给copy，之后都是操作copy，原对象base就保持不变了。
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>function set(state, prop, value) {
+  if (!state.modified) {
+      if (
+          (prop in state.base &amp;&amp; is(state.base[prop], value)) ||
+          (has(state.proxies, prop) &amp;&amp; state.proxies[prop] === value)
+      )
+          return true
+      markChanged(state)
+  }
+  state.copy[prop] = value
+  return true
+}
+function markChanged(state) {
+  if (!state.modified) {
+      state.modified = true
+      state.copy = shallowCopy(state.base)
+      // copy the proxies over the base-copy
+      Object.assign(state.copy, state.proxies) // yup that works for arrays as well
+      if (state.parent) markChanged(state.parent)
+  }
+}
+</code></pre></div>    </div>
+    <p>所以最终draft修改到的属性都将变成proxy对象，没修改到的都将和base同引用。</p>
+  </li>
+</ul>
+
+<p>最后返回修改后的对象, 其中修改过的属性会进行冻结(开发模式中), 另外对于记录的proxies会进行撤销（一旦被撤销，这个代理对象便不可能被直接恢复到原来的状态，同时和它关联的<strong>目标对象</strong>以及<strong>处理器对象</strong>都有可能被垃圾回收掉）</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>export function produceProxy(baseState, producer) {
+		...
+        const res = finalize(rootClone)
+        // revoke all proxies
+        each(proxies, (_, p) =&gt; p.revoke())
+        return res
+}
+export function finalize(base) {
+    if (isProxy(base)) {
+        const state = base[PROXY_STATE]
+        if (state.modified === true) {
+            if (state.finalized === true) return state.copy
+            state.finalized = true
+            return finalizeObject(
+                useProxies ? state.copy : (state.copy = shallowCopy(base)),
+                state
+            )
+        } else {
+            return state.base
+        }
+    }
+    finalizeNonProxiedObject(base)
+    return base
+}
+function finalizeObject(copy, state) {
+    const base = state.base
+    each(copy, (prop, value) =&gt; {
+        if (value !== base[prop]) copy[prop] = finalize(value)
+    })
+    return freeze(copy)
+}
+</code></pre></div></div>
+<p><strong>produce接收参数的关键代码如下</strong></p>
+<ul>
+  <li>
+    <p>当接受一个参数时，必须是函数，也就是操作draft的回调函数，返回一个工厂函数，该工厂函数所接受的参数将传给produce的回调函数，其实就是进行了一次柯里化</p>
+  </li>
+  <li>
+    <p>当接受两个参数时，第一个是原对象，第二个是操作draft的回调函数</p>
+  </li>
+</ul>
+
+<p>可以多读两遍代码理解理解</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>export default function produce(baseState, producer) {
+    // curried invocation
+    if (arguments.length === 1) {
+        const producer = baseState
+        // prettier-ignore
+        if (typeof producer !== "function") throw new Error("if produce is called with 1 argument, the first argument should be a function")
+        return function() {
+            const args = arguments
+            return produce(args[0], draft =&gt; {
+                args[0] = draft // blegh!
+                producer.apply(draft, args)
+            })
+        }
+    }
+
+    // prettier-ignore
+    {
+        if (arguments.length !== 2)  throw new Error("produce expects 1 or 2 arguments, got " + arguments.length)
+        if (!isProxyable(baseState)) throw new Error("the first argument to produce should be a plain object or array, got " + (typeof baseState))
+        if (typeof producer !== "function") throw new Error("the second argument to produce should be a function")
+    }
+
+    return getUseProxies()
+        ? produceProxy(baseState, producer)
+        : produceEs5(baseState, producer)
+}
+</code></pre></div></div>
+
+<h4 id="参考资料">参考资料</h4>
+
+<ol>
+  <li><a href="https://medium.com/reactmaker/%E5%AF%AB-react-%E7%9A%84%E6%99%82%E5%80%99%E5%B8%B8%E5%B8%B8%E8%81%BD%E5%88%B0-immutable-%E4%BB%80%E9%BA%BC%E6%98%AF-immutable-146d919f67e4">寫 React 的時候常常聽到 immutable，什麼是 immutable ?</a></li>
+  <li>
+    <p><a href="https://medium.com/hackernoon/introducing-immer-immutability-the-easy-way-9d73d8f71cb3">Introducing Immer: Immutability the easy way</a></p>
+  </li>
+  <li>https://github.com/immerjs/immer/tree/1.0.0</li>
+</ol>
+:ET
